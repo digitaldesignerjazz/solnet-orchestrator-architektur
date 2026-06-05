@@ -1,3 +1,4 @@
+use base64::{engine::general_purpose, Engine as _};
 use rand::rngs::OsRng;
 use x25519_dalek::{PublicKey, StaticSecret};
 
@@ -10,7 +11,7 @@ pub fn generate_keypair() -> WireGuardKeyPair {
     let public = PublicKey::from(&secret);
 
     WireGuardKeyPair {
-        private_key: base64::encode(secret.as_bytes()),
-        public_key: base64::encode(public.as_bytes()),
+        private_key: general_purpose::STANDARD.encode(secret.as_bytes()),
+        public_key: general_purpose::STANDARD.encode(public.as_bytes()),
     }
 }
