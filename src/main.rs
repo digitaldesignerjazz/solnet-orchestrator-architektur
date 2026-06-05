@@ -1,5 +1,5 @@
 use solnet_orchestrator::api::server::{create_router, AppState};
-use solnet_orchestrator::core::{Node, Task, TaskScheduler};
+use solnet_orchestrator::core::{Node, NodeManager, Task, TaskScheduler};
 use solnet_orchestrator::event_bus::EventBus;
 use std::sync::Arc;
 use tokio::sync::Mutex;
