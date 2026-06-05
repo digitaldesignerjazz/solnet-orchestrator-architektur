@@ -6,12 +6,25 @@ use crate::core::NodeManager;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct YggdrasilSelf {
     pub address: Option<String>,
     pub coords: Option<Vec<i64>>,
     pub subnet: Option<String>,
     pub public_key: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct YggdrasilPeer {
+    pub address: Option<String>,
+    pub coords: Option<Vec<i64>>,
+    pub public_key: Option<String>,
+    pub remote: Option<bool>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct YggdrasilPeersResponse {
+    pub peers: Option<Vec<YggdrasilPeer>>,
 }
 
 pub struct YggdrasilClient {
@@ -27,45 +40,45 @@ impl YggdrasilClient {
         }
     }
 
-    /// Fetch basic self information from Yggdrasil admin API
     pub async fn get_self(&self) -> Result<YggdrasilSelf, reqwest::Error> {
         let url = format!("{}/api/self", self.admin_url.trim_end_matches('/'));
-        info!("Querying Yggdrasil admin: {}", url);
-
         let resp = self.client.get(&url).send().await?;
-        let self_info: YggdrasilSelf = resp.json().await?;
-        Ok(self_info)
+        resp.json().await
     }
 
-    /// Register or update this node's information in the NodeManager
-    pub async fn sync_self_to_node_manager(
-        &self,
-        node_manager: Arc<Mutex<NodeManager>>,
-    ) {
-        match self.get_self().await {
-            Ok(self_info) => {
-                let node_id = self_info
-                    .address
-                    .unwrap_or_else(|| "unknown-ygg".to_string());
+    pub async fn get_peers(&self) -> Result<Vec<YggdrasilPeer>, reqwest::Error> {
+        let url = format!("{}/api/peers", self.admin_url.trim_end_matches('/'));
+        let resp = self.client.get(&url).send().await?;
+        let peers_resp: YggdrasilPeersResponse = resp.json().await?;
+        Ok(peers_resp.peers.unwrap_or_default())
+    }
 
+    pub async fn sync_to_node_manager(&self, node_manager: Arc<Mutex<NodeManager>>) {
+        if let Ok(self_info) = self.get_self().await {
+            if let Some(addr) = &self_info.address {
                 let mut nm = node_manager.lock().await;
-                // In a real implementation we would update existing node or create new
-                nm.register_node(crate::core::Node {
-                    id: node_id,
-                    status: "online".to_string(),
-                })
-                .await;
+                nm.register_or_update_node(addr.clone(), "online".to_string());
+            }
+        }
 
-                info!("Synced Yggdrasil self info to NodeManager");
+        match self.get_peers().await {
+            Ok(peers) => {
+                let mut nm = node_manager.lock().await;
+                for peer in peers {
+                    if let Some(addr) = peer.address {
+                        let status = if peer.remote.unwrap_or(false) { "remote" } else { "connected" };
+                        nm.register_or_update_node(addr, status.to_string());
+                    }
+                }
+                info!("Synced Yggdrasil peers to NodeManager");
             }
             Err(e) => {
-                warn!("Failed to query Yggdrasil admin API: {}. Using fallback.", e);
+                warn!("Failed to fetch Yggdrasil peers: {}", e);
             }
         }
     }
 }
 
-/// Helper to create client from environment or default
 pub fn default_client() -> YggdrasilClient {
     let url = std::env::var("SOLNET_YGGDRASIL_ADMIN")
         .unwrap_or_else(|_| "http://localhost:9001".to_string());
