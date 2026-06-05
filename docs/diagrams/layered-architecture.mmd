@@ -1,0 +1,25 @@
+%% Solnet Orchestrator - Layered Architecture (Mermaid)
+%% Copy into README or render with Mermaid live editor / GitHub
+
+graph TD
+    subgraph Layers
+        direction TB
+        App[Application Layer<br/>Agriculture, Compute Market, Creative Swarms, Disaster Response] 
+        Intel[Intelligence Layer<br/>AI Agent Swarms, Meta-Learning, Grok Integration]
+        Orch[Orchestration Layer<br/>Core Orchestrator, Task Scheduler, Resource Allocator, Policy Engine]
+        Econ[Economy Layer<br/>QNET Blockchain, Smart Contracts, Tokens, Reputation, Governance]
+        Net[Network Layer<br/>Yggdrasil + NovaNet/xMesh + QNET overlays, Privacy (Tor/I2P)]
+        Infra[Infrastructure Layer<br/>Physical/Virtual Nodes, Docker/edge, Hardware HAL, Sensors/Actuators]
+    end
+
+    Infra -->|telemetry, commands| Net
+    Net -->|events, state sync| Econ
+    Econ -->|incentives, verification| Orch
+    Orch -->|task assignment, spawn| Intel
+    Intel -->|plans, optimized decisions| App
+
+    App -->|goals, oversight| Orch
+    Orch -->|control plane decisions| Infra
+
+    classDef layer fill:#e0f2fe,stroke:#0369a1,stroke-width:2px;
+    class Infra,Net,Econ,Orch,Intel,App layer;
