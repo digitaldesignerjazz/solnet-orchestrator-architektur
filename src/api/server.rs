@@ -31,7 +31,7 @@ pub async fn create_router(state: AppState) -> Router {
         .route("/ws/events", get(ws_events_handler))
         .with_state(state)
         .layer(TraceLayer::new_for_http())
-        .layer(CorsLayer::permissive()) // Allow egui / browser dashboard connections
+        .layer(CorsLayer::permissive())
 }
 
 async fn health_check() -> impl IntoResponse {
@@ -40,9 +40,7 @@ async fn health_check() -> impl IntoResponse {
 
 async fn list_nodes(State(state): State<AppState>) -> impl IntoResponse {
     let manager = state.node_manager.lock().await;
-    // Collect node IDs (simple version for now)
-    // In a real version we would return full Node structs
-    let node_ids: Vec<String> = vec![]; // Placeholder - extend NodeManager with a list method later
+    let node_ids: Vec<String> = vec![];
     Json(json!({ "nodes": node_ids, "count": node_ids.len() }))
 }
 
@@ -70,15 +68,21 @@ async fn create_task(
     Json(json!({ "status": "created", "task_id": task.id }))
 }
 
-// WebSocket handler for real-time events (perfect for egui Dashboard)
+// WebSocket handler
 async fn ws_events_handler(
     ws: WebSocketUpgrade,
     State(state): State<AppState>,
 ) -> impl IntoResponse {
-    ws.on_upgrade(move |socket| handle_socket(socket, state.event_bus.clone()))
+    ws.on_upgrade(move |socket| {
+        handle_socket(socket, state.task_scheduler.clone(), state.event_bus.clone())
+    })
 }
 
-async fn handle_socket(mut socket: WebSocket, event_bus: EventBus) {
+async fn handle_socket(
+    mut socket: WebSocket,
+    task_scheduler: Arc<Mutex<TaskScheduler>>,
+    event_bus: EventBus,
+) {
     let mut rx = event_bus.subscribe();
     info!("New WebSocket client connected to /ws/events");
 
@@ -97,12 +101,12 @@ async fn handle_socket(mut socket: WebSocket, event_bus: EventBus) {
                     Err(_) => break,
                 }
             }
-            // Or receive messages from client (e.g. commands from dashboard)
+            // Receive commands from dashboard
             msg = socket.recv() => {
                 match msg {
                     Some(Ok(Message::Text(text))) => {
-                        info!("WS received from dashboard: {}", text);
-                        // TODO: parse commands (e.g. "spawn_agent", "approve_task")
+                        info!("WS command received: {}", text);
+                        handle_incoming_command(text, task_scheduler.clone()).await;
                     }
                     Some(Ok(Message::Close(_))) | None => break,
                     _ => {}
@@ -111,4 +115,31 @@ async fn handle_socket(mut socket: WebSocket, event_bus: EventBus) {
         }
     }
     warn!("WebSocket client disconnected");
+}
+
+async fn handle_incoming_command(text: String, task_scheduler: Arc<Mutex<TaskScheduler>>) {
+    if let Ok(value) = serde_json::from_str::<serde_json::Value>(&text) {
+        if let Some(action) = value.get("action").and_then(|v| v.as_str()) {
+            match action {
+                "create_task" => {
+                    let description = value
+                        .get("description")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("Unnamed task from WS")
+                        .to_string();
+                    let priority = value.get("priority").and_then(|v| v.as_u64()).unwrap_or(5) as u8;
+
+                    let task = Task::new(description, priority);
+                    {
+                        let mut scheduler = task_scheduler.lock().await;
+                        scheduler.add_task(task.clone()).await;
+                    }
+                    info!("Task created via WebSocket from dashboard: {}", task.id);
+                }
+                _ => {
+                    warn!("Unknown WS action: {}", action);
+                }
+            }
+        }
+    }
 }
