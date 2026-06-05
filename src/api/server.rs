@@ -40,8 +40,10 @@ async fn health_check() -> impl IntoResponse {
 
 async fn list_nodes(State(state): State<AppState>) -> impl IntoResponse {
     let manager = state.node_manager.lock().await;
-    // For skeleton we return empty or sample; real impl would query manager
-    Json(json!({ "nodes": [] }))
+    // Collect node IDs (simple version for now)
+    // In a real version we would return full Node structs
+    let node_ids: Vec<String> = vec![]; // Placeholder - extend NodeManager with a list method later
+    Json(json!({ "nodes": node_ids, "count": node_ids.len() }))
 }
 
 async fn list_tasks(State(state): State<AppState>) -> impl IntoResponse {
