@@ -1,6 +1,8 @@
+use axum::serve;
 use solnet_orchestrator::api::server::{create_router, AppState};
-use solnet_orchestrator::core::{Node, NodeManager, Task, TaskScheduler};
+use solnet_orchestrator::core::{NodeManager, Task, TaskScheduler};
 use solnet_orchestrator::event_bus::EventBus;
+use solnet_orchestrator::mesh::yggdrasil::default_client;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tracing::{info, Level};
@@ -23,18 +25,13 @@ async fn main() {
     let node_manager = Arc::new(Mutex::new(NodeManager::new(event_bus.clone())));
     let task_scheduler = Arc::new(Mutex::new(TaskScheduler::new(event_bus.clone())));
 
-    // === Example: Simulate Yggdrasil Discovery (first real integration) ===
-    // In production this would call Yggdrasil admin API (http://localhost:9001 or admin socket)
-    // For now we add a sample node so the dashboard has something to show.
-    {
-        let mut nm = node_manager.lock().await;
-        nm.register_node(Node {
-            id: "ygg-sample-node-001".to_string(),
-            status: "online".to_string(),
-        })
-        .await;
-        info!("Sample Yggdrasil node registered (replace with real discovery)");
-    }
+    // === Yggdrasil Client (real integration) ===
+    let ygg_client = default_client();
+    // Initial sync (non-blocking)
+    let nm_clone = node_manager.clone();
+    tokio::spawn(async move {
+        ygg_client.sync_self_to_node_manager(nm_clone).await;
+    });
 
     // === Example Task ===
     {
@@ -68,34 +65,36 @@ async fn main() {
 
     // Run server + core heartbeat loop concurrently
     tokio::select! {
-        _ = axum::serve(listener, app.into_make_service()) => {
+        _ = serve(listener, app.into_make_service()) => {
             info!("API server stopped");
         }
-        _ = core_heartbeat_loop(node_manager, task_scheduler, event_bus) => {
+        _ = core_heartbeat_loop(node_manager, task_scheduler, event_bus, ygg_client) => {
             info!("Core loop stopped");
         }
     }
 }
 
-/// Background core loop: processes scheduler, heartbeats, Yggdrasil discovery etc.
+/// Background core loop with real Yggdrasil sync
 async fn core_heartbeat_loop(
     node_manager: Arc<Mutex<NodeManager>>,
     task_scheduler: Arc<Mutex<TaskScheduler>>,
     event_bus: EventBus,
+    ygg_client: solnet_orchestrator::mesh::yggdrasil::YggdrasilClient,
 ) {
-    let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(10));
+    let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(15));
     loop {
         interval.tick().await;
 
-        // TODO: Real Yggdrasil discovery + heartbeat processing here
-        // Example: call Yggdrasil admin API and update NodeManager
+        // === Real Yggdrasil Discovery + Heartbeat ===
+        let nm_clone = node_manager.clone();
+        ygg_client.sync_self_to_node_manager(nm_clone).await;
 
-        // Process next high-priority task (very basic for skeleton)
+        // Process next high-priority task (skeleton)
         {
             let mut sched = task_scheduler.lock().await;
             if let Some(task) = sched.get_next_task() {
                 info!("Processing high-priority task: {} - {}", task.id, task.description);
-                // In real impl: assign to nodes/agents, update status, publish events
+                // TODO: assign to nodes/agents, update status, publish Event
             }
         }
 
