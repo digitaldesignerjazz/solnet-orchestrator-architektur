@@ -1,0 +1,28 @@
+[package]
+name = "solnet-orchestrator"
+version = "0.1.0"
+edition = "2021"
+authors = ["Sven Normen <sven@esslinger.co>"]
+description = "Solnet Orchestrator - Core intelligence and coordination layer for the Solnet ecosystem (mesh + AI swarms + blockchain + hardware)"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/digitaldesignerjazz/solnet-orchestrator-architektur"
+
+[dependencies]
+tokio = { version = "1.38", features = ["full", "tracing"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+thiserror = "1.0"
+async-trait = "0.1"
+chrono = { version = "0.4", features = ["serde"] }
+ulid = { version = "1.1", features = ["serde", "uuid"] }
+
+# Future / optional
+# tonic = "0.11"          # gRPC
+# prost = "0.12"         # Protobuf
+# automerge = "0.5"      # CRDTs
+# reqwest = { version = "0.12", features = ["json"] } # for QNET bridge
+
+[dev-dependencies]
+tokio-test = "0.4"
