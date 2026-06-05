@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  # Solnet Orchestrator core (future Rust binary + config)
+  orchestrator:
+    build:
+      context: .
+      dockerfile: Dockerfile  # TODO: create multi-stage Rust Dockerfile
+    container_name: solnet-orchestrator
+    ports:
+      - "8080:8080"  # gRPC / REST API (future)
+      - "9090:9090"  # metrics
+    environment:
+      - RUST_LOG=info
+      - SOLNET_ENV=development
+    volumes:
+      - ./config:/app/config:ro
+    restart: unless-stopped
+    # networks:
+    #   - solnet-mesh
+
+  # Example: Agent runtime / sandbox environment (future)
+  # agent-runner:
+  #   image: solnet/agent-runner:latest
+  #   ...
+
+  # Example: Local QNET node or indexer for development (future)
+  # qnet-node:
+  #   image: ... 
+
+# networks:
+#   solnet-mesh:
+#     driver: bridge
+
+# volumes:
+#   orchestrator-data:
