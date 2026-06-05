@@ -1,6 +1,5 @@
-use axum::Router;
 use solnet_orchestrator::api::server::{create_router, AppState};
-use solnet_orchestrator::core::{NodeManager, Task, TaskScheduler};
+use solnet_orchestrator::core::{Node, Task, TaskScheduler};
 use solnet_orchestrator::event_bus::EventBus;
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -29,7 +28,7 @@ async fn main() {
     // For now we add a sample node so the dashboard has something to show.
     {
         let mut nm = node_manager.lock().await;
-        nm.register_node(solnet_orchestrator::core::node_manager::Node {
+        nm.register_node(Node {
             id: "ygg-sample-node-001".to_string(),
             status: "online".to_string(),
         })
@@ -69,7 +68,7 @@ async fn main() {
 
     // Run server + core heartbeat loop concurrently
     tokio::select! {
-        _ = axum::serve(listener, app) => {
+        _ = axum::serve(listener, app.into_make_service()) => {
             info!("API server stopped");
         }
         _ = core_heartbeat_loop(node_manager, task_scheduler, event_bus) => {
