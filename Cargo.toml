@@ -18,11 +18,15 @@ async-trait = "0.1"
 chrono = { version = "0.4", features = ["serde"] }
 ulid = { version = "1.1", features = ["serde", "uuid"] }
 
-# Future / optional
+# Web API (axum for REST + WebSocket) - chosen for simplicity and excellent tokio integration over full gRPC for initial prototype
+a xum = { version = "0.7", features = ["ws", "macros"] }
+tower-http = { version = "0.5", features = ["trace", "cors"] }
+reqwest = { version = "0.12", features = ["json", "rustls-tls"] } # for Yggdrasil admin API + future QNET bridge
+
+# Future / optional (commented for skeleton)
 # tonic = "0.11"          # gRPC
 # prost = "0.12"         # Protobuf
 # automerge = "0.5"      # CRDTs
-# reqwest = { version = "0.12", features = ["json"] } # for QNET bridge
 
 [dev-dependencies]
 tokio-test = "0.4"
