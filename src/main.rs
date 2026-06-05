@@ -30,7 +30,7 @@ async fn main() {
     // Initial sync (non-blocking)
     let nm_clone = node_manager.clone();
     tokio::spawn(async move {
-        ygg_client.sync_self_to_node_manager(nm_clone).await;
+        ygg_client.sync_to_node_manager(nm_clone).await;
     });
 
     // === Example Task ===
@@ -87,7 +87,7 @@ async fn core_heartbeat_loop(
 
         // === Real Yggdrasil Discovery + Heartbeat ===
         let nm_clone = node_manager.clone();
-        ygg_client.sync_self_to_node_manager(nm_clone).await;
+        ygg_client.sync_to_node_manager(nm_clone).await;
 
         // Process next high-priority task (skeleton)
         {
